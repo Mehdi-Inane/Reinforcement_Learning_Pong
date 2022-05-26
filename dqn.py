@@ -63,9 +63,20 @@ class DQN(nn.Module):
 
     def forward(self, x):
         """Runs the forward pass of the NN depending on architecture."""
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)
-
+        x = self.relu(self.conv1(x))
+        print("shape after first operation",x.shape)
+        x = self.relu(self.conv2(x))
+        print("shape after second operation",x.shape)
+        x = self.relu(self.conv3(x))
+        m = nn.Flatten(0,2)
+        x = m(x)
+        x = torch.reshape(x,(1,3136))
+        print("shape after third operation",x.shape)
+        x = self.fc1(x.unsqueeze(1))
+        x = self.relu(x)
+        x = self.fc2(x) 
+        print("we here")
+        print(x)
         return x
 
     def act(self, observation, exploit=False):
@@ -87,6 +98,7 @@ class DQN(nn.Module):
                 action_index = random.randrange(0, self.n_actions)
                 action.append(action_index)
             else:
+                #print(self.forward(state).max(0)[1].item())
                 action.append(self.forward(state).max(0)[1].item())
         return torch.tensor(action)
 
