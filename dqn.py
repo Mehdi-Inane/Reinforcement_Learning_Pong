@@ -64,20 +64,13 @@ class DQN(nn.Module):
     def forward(self, x):
         """Runs the forward pass of the NN depending on architecture."""
         x = self.relu(self.conv1(x))
-        print("shape after first operation",x.shape)
         x = self.relu(self.conv2(x))
-        print("shape after second operation",x.shape)
         x = self.relu(self.conv3(x))
-        m = nn.Flatten(0,2)
-        x = m(x)
-        x = torch.reshape(x,(1,3136))
-        print("shape after third operation",x.shape)
-        x = self.fc1(x.unsqueeze(1))
-        x = self.relu(x)
+        x = x.view(-1,3136)
+        x = self.relu(self.fc1(x))
         x = self.fc2(x) 
-        print("we here")
-        print(x)
-        return x
+        x=self.flatten(x)
+        return x.view(2,-1)
 
     def act(self, observation, exploit=False):
         """Selects an action with an epsilon-greedy exploration strategy."""
@@ -98,7 +91,6 @@ class DQN(nn.Module):
                 action_index = random.randrange(0, self.n_actions)
                 action.append(action_index)
             else:
-                #print(self.forward(state).max(0)[1].item())
                 action.append(self.forward(state).max(0)[1].item())
         return torch.tensor(action)
 
@@ -130,7 +122,7 @@ def optimize(dqn, target_dqn, memory, optimizer):
     # TODO: Compute the current estimates of the Q-values for each state-action
     #       pair (s,a). Here, torch.gather() is useful for selecting the Q-values
     #       corresponding to the chosen actions.
-    q_values = dqn(state_batch).gather(1, action_batch.unsqueeze(1))
+    q_values = dqn(state_batch).gather(1, action_batch.view(1,dqn.batch_size))
 
     # TODO: Compute the Q-value targets. Only do this for non-terminal transitions!
 
