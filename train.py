@@ -3,7 +3,7 @@ import argparse
 import gym
 import torch
 import torch.nn as nn
-
+import numpy as np
 import config
 from utils import preprocess
 from evaluate import evaluate_policy
@@ -31,6 +31,7 @@ if __name__ == '__main__':
     env_config = ENV_CONFIGS["Pong-v0"]
     #Preprocessing the environment and scaling observations to [0,1]
     env  =  gym.wrappers.AtariPreprocessing ( env , screen_size = 84 , grayscale_obs = True , frame_skip = 1 , noop_max = 30,scale_obs=True )
+    #env = gym.wrappers.FrameStack(env, 4)
     # Initialize deep Q-networks.
     dqn = DQN(env_config=env_config).to(device)
     target_dqn = DQN(env_config=env_config).to(device)
@@ -50,31 +51,28 @@ if __name__ == '__main__':
         done = False
 
         obs = preprocess(env.reset(), env=args.env).unsqueeze(0)
+        print("obs is",obs)
         #updating the frame stack
-        obs_stack  =  torch.cat(env_config["obs_stack_size"]  * [obs]).unsqueeze (0).to(device)
-        print("shape of obs stack",obs_stack.shape)
-        obs = torch.cat((obs_stack[:, 1 :, ...],obs.unsqueeze( 1 )), dim = 1 ).to( device )
+        obs_stack  =  torch.cat(env_config["obs_stack_size"]  * [obs]).unsqueeze(0).to(device)
+        print("stack is",obs_stack)
+        obs = torch.cat((obs_stack[:,1:, ...],obs.unsqueeze(1)), dim = 1 ).to( device )
+        print("obs after stacking is",obs)
         print("shape of obs",obs.shape)
         steps = 0
         while not done:
             steps += 1
-
             action = dqn.act(obs)
-
             # Act in the true environment.
-            
             obs_old = obs
             obs, reward, done, info = env.step(action.item())
-            print(obs)
             # Preprocess incoming observation.
             if not done:
                 obs = preprocess(obs, env=args.env).unsqueeze(0)
-            
-            next_obs_stack  =  torch.cat((obs_stack[:, 1 :, ...],obs.unsqueeze( 1 )), dim = 1 ).to( device )
+            obs  =  torch.cat((obs_stack[:,1:, ...],obs.unsqueeze(1)), dim = 1 ).to( device )
             # TODO: Add the transition to the replay memory. Remember to convert
             #       everything to PyTorch tensors!
             reward = torch.tensor([reward], device=device)
-            memory.push(obs_old, action, next_obs_stack, reward)
+            memory.push(obs_old, action, obs, reward)
 
             # TODO: Run DQN.optimize() every env_config["train_frequency"] steps.
             if episode % env_config["train_frequency"] == 0:
