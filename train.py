@@ -37,7 +37,6 @@ if __name__ == '__main__':
     target_dqn = DQN(env_config=env_config).to(device)
     target_dqn.load_state_dict(dqn.state_dict())
     target_dqn.eval()
-    print(env_config["train_frequency"])
     # Create replay memory.
     memory = ReplayMemory(env_config['memory_size'])
 
@@ -48,16 +47,10 @@ if __name__ == '__main__':
     best_mean_return = -float("Inf")
 
     for episode in range(env_config['n_episodes']):
+        print("Episode ",episode)
         done = False
 
-        obs = preprocess(env.reset(), env=args.env).unsqueeze(0)
-        print("obs is",obs)
-        #updating the frame stack
-        obs_stack  =  torch.cat(env_config["obs_stack_size"]  * [obs]).unsqueeze(0).to(device)
-        print("stack is",obs_stack)
-        obs = torch.cat((obs_stack[:,1:, ...],obs.unsqueeze(1)), dim = 1 ).to( device )
-        print("obs after stacking is",obs)
-        print("shape of obs",obs.shape)
+        obs = preprocess(env.reset(), env=args.env)
         steps = 0
         while not done:
             steps += 1
@@ -67,8 +60,7 @@ if __name__ == '__main__':
             obs, reward, done, info = env.step(action.item())
             # Preprocess incoming observation.
             if not done:
-                obs = preprocess(obs, env=args.env).unsqueeze(0)
-            obs  =  torch.cat((obs_stack[:,1:, ...],obs.unsqueeze(1)), dim = 1 ).to( device )
+                obs = preprocess(obs, env=args.env)
             # TODO: Add the transition to the replay memory. Remember to convert
             #       everything to PyTorch tensors!
             reward = torch.tensor([reward], device=device)
@@ -81,7 +73,6 @@ if __name__ == '__main__':
             # TODO: Update the target network every env_config["target_update_frequency"] steps.
             if episode % env_config["target_update_frequency"] == 0:
                 target_dqn.load_state_dict(dqn.state_dict())
-
         # Evaluate the current agent.
         if episode % args.evaluate_freq == 0:
             mean_return = evaluate_policy(dqn, env, env_config, args, n_episodes=args.evaluation_episodes)
