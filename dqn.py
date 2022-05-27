@@ -80,10 +80,12 @@ class DQN(nn.Module):
         #       the input would be a [32, 4] tensor and the output a [32, 1] tensor.
         # TODO: Implement epsilon-greedy exploration.
         global steps_done
+        action = []
         if exploit:
             with torch.no_grad():
-                return self.forward(observation[0]).max(0)[1]
-        action = []
+                for state in observation:
+                    action.append(self.forward(state).max(0)[1].item())
+                return torch.tensor(action)
         eps_threshold = self.eps_end + (self.eps_start - self.eps_end) * math.exp(-1. * steps_done / 200)
         steps_done += 1
         for state in observation:
@@ -110,7 +112,6 @@ def optimize(dqn, target_dqn, memory, optimizer):
     Transition = namedtuple('Transition',
                             ('obs', 'action', 'next_obs', 'reward'))
     batch = Transition(*transitions)
-    # print(batch.next_obs)
     non_final_mask = torch.tensor(tuple(map(lambda s: not isinstance(s, numpy.ndarray),
                                             batch.next_obs)), device=device, dtype=torch.bool)
 
@@ -127,7 +128,8 @@ def optimize(dqn, target_dqn, memory, optimizer):
     # TODO: Compute the Q-value targets. Only do this for non-terminal transitions!
 
     next_state_values = torch.zeros(dqn.batch_size, device=device)
-    next_state_values[non_final_mask] = target_dqn(non_final_next_states).detach().max(1)[0]
+    #print(target_dqn(non_final_next_states).detach().max(0)[0].shape)
+    next_state_values[non_final_mask] = target_dqn(non_final_next_states).detach().max(0)[0]
     # Compute the expected Q values
     q_value_targets = (next_state_values * dqn.gamma) + reward_batch
     # Compute loss.
@@ -138,5 +140,4 @@ def optimize(dqn, target_dqn, memory, optimizer):
 
     loss.backward()
     optimizer.step()
-
     return loss.item()
